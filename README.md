@@ -109,7 +109,7 @@ environment variables in **Vercel → Project Settings → Environment Variables
 | Variable | Value |
 | --- | --- |
 | `RESEND_API_KEY` | API key from Resend |
-| `CONTACT_FROM_EMAIL` | Sender address. Until you verify a domain, use `onboarding@resend.dev` |
+| `CONTACT_FROM_EMAIL` | Sender address: `Portfolio Contact <onboarding@resend.dev>` (name first, address inside `<>`) |
 | `CONTACT_TO_EMAIL` | Inbox that should receive messages (for example, the address in `site.email`) |
 
 Until a domain is verified in Resend, `onboarding@resend.dev` can only deliver to the email address

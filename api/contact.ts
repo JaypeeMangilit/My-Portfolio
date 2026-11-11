@@ -8,6 +8,45 @@ interface ContactMessage {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/** Either a bare address or a display name wrapped around one. */
+const SENDER_PATTERN = /^([^<>]*)<([^<>]+)>$/
+
+/**
+ * Resend only accepts "email@example.com" or "Name <email@example.com>".
+ * Configuration values frequently arrive with stray whitespace, wrapping quotes,
+ * exotic spaces, or the name and address swapped, so normalise the sender here
+ * instead of forwarding a malformed value to the provider.
+ */
+function normalizeSender(value: string): string | null {
+  const cleaned = value
+    .replace(/[\u00a0\u2007\u202f]/g, ' ')
+    .trim()
+    .replace(/^["']+|["']+$/g, '')
+    .trim()
+
+  if (!cleaned) return null
+
+  const match = SENDER_PATTERN.exec(cleaned)
+  if (match) {
+    const first = match[1].trim().replace(/^["']+|["']+$/g, '').trim()
+    const second = match[2].trim()
+
+    // "Name <email@example.com>"
+    if (EMAIL_PATTERN.test(second)) {
+      return first ? `${first} <${second}>` : second
+    }
+
+    // "email@example.com <Name>" — the two halves are the wrong way round.
+    if (first && EMAIL_PATTERN.test(first)) {
+      return second ? `${second} <${first}>` : first
+    }
+
+    return null
+  }
+
+  return EMAIL_PATTERN.test(cleaned) ? cleaned : null
+}
+
 /** Filled in only by bots — the field is hidden from real visitors. */
 const HONEYPOT_FIELD = 'website'
 
@@ -96,10 +135,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.CONTACT_FROM_EMAIL
-  const to = process.env.CONTACT_TO_EMAIL
-  if (!apiKey || !from || !to) {
-    console.error('Contact email is not configured. Set RESEND_API_KEY, CONTACT_FROM_EMAIL, and CONTACT_TO_EMAIL.')
+  const rawFrom = process.env.CONTACT_FROM_EMAIL ?? ''
+  const from = normalizeSender(rawFrom)
+  const to = process.env.CONTACT_TO_EMAIL?.trim() ?? ''
+
+  if (!apiKey || !from || !EMAIL_PATTERN.test(to)) {
+    console.error(
+      'Contact email is not configured correctly. ' +
+        `RESEND_API_KEY=${apiKey ? 'set' : 'missing'}, ` +
+        `CONTACT_FROM_EMAIL=${JSON.stringify(rawFrom)} (expected "Name <email@example.com>"), ` +
+        `CONTACT_TO_EMAIL=${JSON.stringify(to)}.`,
+    )
     return res.status(503).json({ error: 'Email sending is not configured yet.' })
   }
 
