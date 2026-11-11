@@ -31,11 +31,11 @@ export const site = {
   tagline: 'BUILDING DIGITAL SOLUTIONS THAT MAKE WORK SIMPLER.',
 
   intro:
-    "I'm a Jaypee G. Mangilit, a web developer focused on building practical, reliable, and user-friendly web applications and management systems that help schools, businesses, and organizations improve their operations.",
+    "I'm a full stack web developer focused on building practical, reliable, and user-friendly web applications and management systems that help schools, businesses, and organizations improve their operations.",
 
   // TODO: Add more paragraphs by adding another string to this array.
   about: [
-    "I'm a Jaypee G. Mangilit, a web developer who enjoys creating systems that solve real-world problems. I focus on developing custom web applications, database-driven solutions, and management systems that make everyday processes more efficient.",
+    "I'm a Jaypee G. Mangilit, a full stack web developer who enjoys creating systems that solve real-world problems. I focus on developing custom web applications, database-driven solutions, and management systems that make everyday processes more efficient.",
   ],
 
   // TODO: Your city/country, or set to '' to hide the row.

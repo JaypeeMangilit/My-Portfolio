@@ -101,7 +101,7 @@ export default function Contact() {
   const contactRows = [
     { icon: Mail, label: 'Email', value: site.email, href: `mailto:${site.email}` },
     { icon: Phone, label: 'Phone', value: site.phone, href: `tel:${site.phone}` },
-    { icon: Facebook, label: 'Facebook', value: 'Facebook profile / page', href: site.facebook },
+    { icon: Facebook, label: 'Facebook', value: 'Facebook Profile', href: site.facebook },
     { icon: MapPin, label: 'Location', value: site.location, href: '' },
   ].filter((row) => row.value.trim() !== '')
 
