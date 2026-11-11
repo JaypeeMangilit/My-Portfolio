@@ -8,8 +8,57 @@ interface ContactMessage {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/** Filled in only by bots — the field is hidden from real visitors. */
+const HONEYPOT_FIELD = 'website'
+
+/** Per-IP throttle: at most 5 messages every 15 minutes. */
+const RATE_LIMIT_MAX = 5
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
+
+interface RateLimitEntry {
+  count: number
+  resetAt: number
+}
+
+// Serverless instances are ephemeral, so this map is per-instance and clears on
+// cold starts. It deters casual abuse; use Vercel KV or Upstash for a strict,
+// cross-instance limit.
+const rateLimits = new Map<string, RateLimitEntry>()
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+function clientIp(req: VercelRequest): string {
+  const forwarded = req.headers['x-forwarded-for']
+  if (typeof forwarded === 'string' && forwarded.length > 0) {
+    return forwarded.split(',')[0].trim()
+  }
+  const real = req.headers['x-real-ip']
+  return typeof real === 'string' && real.length > 0 ? real : 'unknown'
+}
+
+/** Returns true while the client is still within the rate limit. */
+function withinRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimits.get(ip)
+
+  if (!entry || entry.resetAt <= now) {
+    rateLimits.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX) return false
+
+  entry.count += 1
+  return true
+}
+
+function pruneRateLimits(): void {
+  const now = Date.now()
+  for (const [ip, entry] of rateLimits) {
+    if (entry.resetAt <= now) rateLimits.delete(ip)
+  }
 }
 
 function parseMessage(value: unknown): ContactMessage | null {
@@ -46,17 +95,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed.' })
   }
 
-  const contact = parseMessage(req.body)
-  if (!contact) {
-    return res.status(400).json({ error: 'Please provide a valid name, email, and message.' })
-  }
-
   const apiKey = process.env.RESEND_API_KEY
   const from = process.env.CONTACT_FROM_EMAIL
   const to = process.env.CONTACT_TO_EMAIL
   if (!apiKey || !from || !to) {
     console.error('Contact email is not configured. Set RESEND_API_KEY, CONTACT_FROM_EMAIL, and CONTACT_TO_EMAIL.')
     return res.status(503).json({ error: 'Email sending is not configured yet.' })
+  }
+
+  const ip = clientIp(req)
+  if (!withinRateLimit(ip)) {
+    return res.status(429).json({
+      error: 'You are sending messages too quickly. Please wait a few minutes before trying again.',
+    })
+  }
+  pruneRateLimits()
+
+  const body = isRecord(req.body) ? req.body : {}
+
+  // Honeypot: pretend the message went through so bots move on.
+  if (typeof body[HONEYPOT_FIELD] === 'string' && body[HONEYPOT_FIELD].trim() !== '') {
+    console.warn(`Honeypot triggered from ${ip}; message discarded.`)
+    return res.status(200).json({ success: true })
+  }
+
+  const contact = parseMessage(body)
+  if (!contact) {
+    return res.status(400).json({ error: 'Please provide a valid name, email, and message.' })
   }
 
   const safeName = contact.name.replace(/[\r\n]+/g, ' ')
@@ -82,7 +147,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (!providerResponse.ok) {
-    console.error('The email provider rejected a contact message.', providerResponse.status)
+    const detail = await providerResponse.text().catch(() => '')
+    console.error('The email provider rejected a contact message.', providerResponse.status, detail)
     return res.status(502).json({ error: 'The email service could not send your message. Please try again later.' })
   }
 

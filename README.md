@@ -100,7 +100,8 @@ Every value that needs your input is marked with a `TODO` comment.
 
 The contact form sends messages through a Vercel serverless API endpoint and Resend. The visitor's
 email address is included as the reply-to address; messages are sent only to the configured
-`CONTACT_TO_EMAIL`.
+`CONTACT_TO_EMAIL`. The endpoint validates input, discards honeypot-filled submissions, and
+throttles each visitor to 5 messages per 15 minutes.
 
 Before deploying, create a Resend account, verify a sender domain/address, and add these
 environment variables in **Vercel → Project Settings → Environment Variables**:
@@ -108,8 +109,11 @@ environment variables in **Vercel → Project Settings → Environment Variables
 | Variable | Value |
 | --- | --- |
 | `RESEND_API_KEY` | API key from Resend |
-| `CONTACT_FROM_EMAIL` | Sender address verified with Resend (for example, `Portfolio <contact@your-domain.com>`) |
+| `CONTACT_FROM_EMAIL` | Sender address. Until you verify a domain, use `onboarding@resend.dev` |
 | `CONTACT_TO_EMAIL` | Inbox that should receive messages (for example, the address in `site.email`) |
+
+Until a domain is verified in Resend, `onboarding@resend.dev` can only deliver to the email address
+registered with your Resend account, and recipients may see a "via resend.dev" note.
 
 Keep the API key only in Vercel environment variables; never put it in frontend code or commit it
 to the repository. Redeploy after adding or changing the variables. The Vercel function is not

@@ -8,13 +8,15 @@ interface FormState {
   name: string
   email: string
   message: string
+  /** Honeypot — always empty for real visitors. */
+  website: string
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>>
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const initialForm: FormState = { name: '', email: '', message: '' }
+const initialForm: FormState = { name: '', email: '', message: '', website: '' }
 
 type SubmissionStatus = 'idle' | 'submitting' | 'success' | 'error'
 
@@ -58,6 +60,7 @@ export default function Contact() {
           name: form.name.trim(),
           email: form.email.trim(),
           message: form.message.trim(),
+          website: form.website,
         }),
       })
       if (!response.headers.get('content-type')?.includes('application/json')) {
@@ -215,6 +218,19 @@ export default function Contact() {
               />
               {errors.message ? <p className="text-xs text-red-400">{errors.message}</p> : null}
             </div>
+
+            {/* Honeypot: hidden from real visitors, filled in by most bots. */}
+            <input
+              type="text"
+              id="contact-website"
+              name="website"
+              value={form.website}
+              onChange={(event) => update('website', event.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              className="hidden"
+            />
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs leading-relaxed text-muted">
